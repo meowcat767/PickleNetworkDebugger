@@ -70,6 +70,19 @@ class NetView : Application() {
         val root = VBox(controls, canvas)
         val scene = Scene(root)
         
+        // Key events for navigation
+        scene.setOnKeyPressed { event ->
+            if (!NetworkScanner.isInitialScanComplete) return@setOnKeyPressed
+            val step = 50.0 / scale
+            when (event.code) {
+                javafx.scene.input.KeyCode.UP -> offsetY += step
+                javafx.scene.input.KeyCode.DOWN -> offsetY -= step
+                javafx.scene.input.KeyCode.LEFT -> offsetX += step
+                javafx.scene.input.KeyCode.RIGHT -> offsetX -= step
+                else -> {}
+            }
+        }
+        
         // Bind canvas size to scene size
         canvas.widthProperty().bind(root.widthProperty())
         canvas.heightProperty().bind(root.heightProperty().subtract(controls.heightProperty()))
@@ -92,7 +105,6 @@ class NetView : Application() {
         canvas.setOnScroll { event ->
             if (!NetworkScanner.isInitialScanComplete) return@setOnScroll
             val delta = event.deltaY
-            val zoomFactor = if (delta > 0) 1.1 else 0.9
             
             // Zoom towards mouse position
             val mouseX = event.x
@@ -100,11 +112,15 @@ class NetView : Application() {
             
             val relX = (mouseX - offsetX) / scale
             val relY = (mouseY - offsetY) / scale
+
+            val zoomFactor = if (delta > 0) 1.1 else 0.9
+            val newScale = (scale * zoomFactor).coerceIn(0.1, 10.0)
             
-            scale *= zoomFactor
-            
-            offsetX = mouseX - relX * scale
-            offsetY = mouseY - relY * scale
+            if (newScale != scale) {
+                scale = newScale
+                offsetX = mouseX - relX * scale
+                offsetY = mouseY - relY * scale
+            }
             
             event.consume()
         }
@@ -159,7 +175,7 @@ class NetView : Application() {
 
         val positions = mutableMapOf<String, Pair<Double, Double>>()
 
-        val padding = 100.0
+        val padding = 150.0
         val nodeCount = filteredNodes.size
         if (nodeCount == 0) return
 
@@ -167,15 +183,20 @@ class NetView : Application() {
         val columns = Math.ceil(Math.sqrt(nodeCount.toDouble())).toInt()
         val rows = Math.ceil(nodeCount.toDouble() / columns).toInt()
 
-        val cellWidth = (w - 2 * padding) / columns
-        val cellHeight = (h - 2 * padding) / rows
+        val cellWidth = (w - 2 * padding) / columns.coerceAtLeast(1)
+        val cellHeight = (h - 2 * padding) / rows.coerceAtLeast(1)
+        
+        // Ensure minimum cell size for spacing
+        val minCellSize = 200.0
+        val actualCellWidth = cellWidth.coerceAtLeast(minCellSize)
+        val actualCellHeight = cellHeight.coerceAtLeast(minCellSize)
 
         filteredNodes.forEachIndexed { index, node ->
             val col = index % columns
             val row = index / columns
 
-            val x = padding + col * cellWidth + cellWidth / 2
-            val y = padding + row * cellHeight + cellHeight / 2
+            val x = padding + col * actualCellWidth + actualCellWidth / 2
+            val y = padding + row * actualCellHeight + actualCellHeight / 2
             positions[node] = x to y
 
             // Background highlight for the device cell
@@ -213,7 +234,8 @@ class NetView : Application() {
                 gc.stroke = Color.web("#00ff00", 0.6)
                 gc.lineWidth = (1 + edge.weight.coerceAtMost(5)).toDouble()
 
-                drawArrow(gc, start.first, start.second, end.first, end.second)
+                val label = NetworkGraph.getDisplayName(edge.dst)
+                drawArrow(gc, start.first, start.second, end.first, end.second, label)
             }
         }
         gc.restore()
@@ -233,7 +255,7 @@ class NetView : Application() {
         }
     }
 
-    private fun drawArrow(gc: javafx.scene.canvas.GraphicsContext, x1: Double, y1: Double, x2: Double, y2: Double) {
+    private fun drawArrow(gc: javafx.scene.canvas.GraphicsContext, x1: Double, y1: Double, x2: Double, y2: Double, label: String? = null) {
         val arrowSize = 10.0
         val angle = Math.atan2(y2 - y1, x2 - x1)
 
@@ -244,21 +266,17 @@ class NetView : Application() {
         val ex = x2 - offset * cos(angle)
         val ey = y2 - offset * sin(angle)
 
-        // If it's a straight line, we can just draw it, but curve it slightly if return traffic exists
-        // Since we are in a grid, we might have many overlapping lines.
-        // Let's use a small curve for everything to make it look "organic" and avoid total overlaps.
-        
         val midX = (sx + ex) / 2
         val midY = (sy + ey) / 2
         
         // Offset control point perpendicular to the line
         val dx = ex - sx
         val dy = ey - sy
-        val len = Math.sqrt(dx * dx + dy * dy)
+        val len = Math.sqrt(dx * dx + dy * dy).coerceAtLeast(1.0)
         val nx = -dy / len
         val ny = dx / len
         
-        val curveAmount = 20.0
+        val curveAmount = 30.0
         val controlX = midX + nx * curveAmount
         val controlY = midY + ny * curveAmount
 
@@ -266,6 +284,23 @@ class NetView : Application() {
         gc.moveTo(sx, sy)
         gc.quadraticCurveTo(controlX, controlY, ex, ey)
         gc.stroke()
+        
+        // Draw label along the curve (at t=0.5)
+        if (label != null) {
+            val tx = 0.25 * sx + 0.5 * controlX + 0.25 * ex
+            val ty = 0.25 * sy + 0.5 * controlY + 0.25 * ey
+            
+            gc.save()
+            gc.fill = Color.web("#00ff00", 0.9)
+            gc.font = Font.font("Monospaced", 8.0)
+            gc.textAlign = TextAlignment.CENTER
+            
+            // Clean up label for the arrow (just the name or just IP if too long)
+            val shortLabel = if (label.contains(" (")) label.substringBefore(" (") else label
+            
+            gc.fillText(shortLabel, tx, ty - 5)
+            gc.restore()
+        }
         
         val endAngle = Math.atan2(ey - controlY, ex - controlX)
         drawArrowHead(gc, ex, ey, endAngle, arrowSize)
