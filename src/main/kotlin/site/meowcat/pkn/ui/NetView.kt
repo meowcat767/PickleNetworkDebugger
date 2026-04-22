@@ -60,39 +60,69 @@ class NetView : Application() {
     }
 
     fun draw(gc: javafx.scene.canvas.GraphicsContext, w: Double, h: Double) {
-        gc.fill = Color.BLACK
+        gc.fill = Color.web("#1e1e1e")
         gc.fillRect(0.0, 0.0, w, h)
 
-        val nodeList = NetworkGraph.nodes.toList()
-        val centerX = w / 2
-        val centerY = h / 2
-        val radius = 250
-
+        val nodeList = NetworkGraph.nodes.toList().sorted()
         val positions = mutableMapOf<String, Pair<Double, Double>>()
 
+        val padding = 100.0
+        val availableHeight = h - 2 * padding
+        val spacing = if (nodeList.size > 1) availableHeight / (nodeList.size - 1) else 0.0
+
+        // Draw nodes in a line (vertical)
         nodeList.forEachIndexed { index, node ->
-            val angle = (index * 2 * Math.PI) / nodeList.size
-            val x = centerX + cos(angle) * radius
-            var y = centerY + sin(angle) * radius
+            val x = w / 2
+            val y = padding + index * spacing
             positions[node] = x to y
 
-            gc.fill = Color.CYAN
-            gc.fillOval(x - 5, y - 5, 10.0, 10.0)
+            // Node Circle
+            gc.fill = Color.web("#4a9eff")
+            gc.fillOval(x - 15, y - 15, 30.0, 30.0)
 
+            // IP/Name Label
             gc.fill = Color.WHITE
-            gc.font = Font.font(10.0)
-            gc.textAlign = TextAlignment.CENTER
-            gc.fillText(node, x, y - 10)
+            gc.font = Font.font("Monospaced", 12.0)
+            gc.textAlign = TextAlignment.LEFT
+            val displayName = NetworkGraph.getDisplayName(node)
+            gc.fillText(displayName, x + 25, y + 5)
         }
 
-        gc.stroke = Color.LIME
-
+        // Draw edges as arrows
         NetworkGraph.edges.values.forEach { edge ->
-            val a = positions[edge.src] ?: return@forEach
-            val b = positions[edge.dst] ?: return@forEach
+            val start = positions[edge.src] ?: return@forEach
+            val end = positions[edge.dst] ?: return@forEach
 
-            gc.lineWidth = (1 + edge.weight.coerceAtMost(10)).toDouble()
-            gc.strokeLine(a.first, a.second, b.first, b.second)
+            if (edge.src == edge.dst) return@forEach // Skip self-loops for now or draw differently
+
+            gc.stroke = Color.web("#00ff00", 0.6)
+            gc.lineWidth = (1 + edge.weight.coerceAtMost(5)).toDouble()
+
+            drawArrow(gc, start.first, start.second, end.first, end.second)
         }
+    }
+
+    private fun drawArrow(gc: javafx.scene.canvas.GraphicsContext, x1: Double, y1: Double, x2: Double, y2: Double) {
+        val arrowSize = 10.0
+        val angle = Math.atan2(y2 - y1, x2 - x1)
+
+        // Offset start and end points to be outside the node circles
+        val offset = 15.0
+        val sx = x1 + offset * cos(angle)
+        val sy = y1 + offset * sin(angle)
+        val ex = x2 - offset * cos(angle)
+        val ey = y2 - offset * sin(angle)
+
+        gc.strokeLine(sx, sy, ex, ey)
+
+        // Arrow head
+        gc.fill = gc.stroke
+        val arrowAngle = Math.PI / 6
+        val x3 = ex - arrowSize * cos(angle - arrowAngle)
+        val y3 = ey - arrowSize * sin(angle - arrowAngle)
+        val x4 = ex - arrowSize * cos(angle + arrowAngle)
+        val y4 = ey - arrowSize * sin(angle + arrowAngle)
+
+        gc.fillPolygon(doubleArrayOf(ex, x3, x4), doubleArrayOf(ey, y3, y4), 3)
     }
 }
