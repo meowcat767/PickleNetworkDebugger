@@ -1,10 +1,13 @@
 package site.meowcat.pkn
 
+import org.pcap4j.core.PacketListener
 import org.pcap4j.core.PcapNativeException
 import org.pcap4j.core.Pcaps
 import org.pcap4j.core.PcapNetworkInterface
 import org.pcap4j.core.RawPacketListener
-import org.pcap4j.core.PcapIpV4Address
+import org.pcap4j.packet.EthernetPacket
+import org.pcap4j.packet.IpV4Packet
+
 fun main() {
     val nifs = Pcaps.findAllDevs()
 
@@ -33,10 +36,18 @@ fun main() {
         }
         return
     }
+    handle.loop(-1, PacketListener { packet ->
 
-    handle.loop(10, RawPacketListener { packet ->
-        println("Packet length: ${packet.size}")
+        val ethernet = packet.get(EthernetPacket::class.java)
+        val ip = ethernet?.payload as? IpV4Packet
+
+        val src = ip?.header?.srcAddr?.hostAddress
+        val dst = ip?.header?.dstAddr?.hostAddress
+
+        if (src != null && dst != null) {
+            println("$src -> $dst (${packet.length()})")
+        }
     })
 
-    handle.close()
-}
+        handle.close()
+    }
