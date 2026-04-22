@@ -70,11 +70,24 @@ class NetView : Application() {
         val availableHeight = h - 2 * padding
         val spacing = if (nodeList.size > 1) availableHeight / (nodeList.size - 1) else 0.0
 
-        // Draw nodes in a line (vertical)
+        // Draw nodes in two lines (left for high weight source, right for destination)
+        // For simplicity, let's keep them in one line but make them look better.
+        // Actually, "all devices in line" might mean a vertical or horizontal list.
+        // Let's try two columns if there are many nodes, or one column centered.
+        
+        val leftX = w * 0.25
+        val rightX = w * 0.75
+        
+        // Let's just use one column for now as "in line" suggests.
+        // But maybe offset them a bit or add some background boxes.
         nodeList.forEachIndexed { index, node ->
-            val x = w / 2
+            val x = w / 3 // Move to the left a bit to give room for labels
             val y = padding + index * spacing
             positions[node] = x to y
+
+            // Background highlight for the device row
+            gc.fill = Color.web("#2d2d2d")
+            gc.fillRoundRect(x - 40, y - 25, w * 0.6, 50.0, 15.0, 15.0)
 
             // Node Circle
             gc.fill = Color.web("#4a9eff")
@@ -82,10 +95,10 @@ class NetView : Application() {
 
             // IP/Name Label
             gc.fill = Color.WHITE
-            gc.font = Font.font("Monospaced", 12.0)
+            gc.font = Font.font("Monospaced", 14.0)
             gc.textAlign = TextAlignment.LEFT
             val displayName = NetworkGraph.getDisplayName(node)
-            gc.fillText(displayName, x + 25, y + 5)
+            gc.fillText(displayName, x + 30, y + 5)
         }
 
         // Draw edges as arrows
@@ -113,16 +126,34 @@ class NetView : Application() {
         val ex = x2 - offset * cos(angle)
         val ey = y2 - offset * sin(angle)
 
-        gc.strokeLine(sx, sy, ex, ey)
+        // If it's a vertical-ish line, curve it slightly so return traffic doesn't overlap
+        if (Math.abs(x2 - x1) < 1.0) {
+            val controlX = x1 + (if (y2 > y1) 40.0 else -40.0)
+            val controlY = (y1 + y2) / 2
+            gc.beginPath()
+            gc.moveTo(sx, sy)
+            gc.quadraticCurveTo(controlX, controlY, ex, ey)
+            gc.stroke()
+            
+            // Adjust arrow head position for curve
+            // For simplicity, I'll just draw the arrow at the end of the curve
+            // The angle at the end of quadratic curve is between (controlX, controlY) and (ex, ey)
+            val endAngle = Math.atan2(ey - controlY, ex - controlX)
+            drawArrowHead(gc, ex, ey, endAngle, arrowSize)
+        } else {
+            gc.strokeLine(sx, sy, ex, ey)
+            drawArrowHead(gc, ex, ey, angle, arrowSize)
+        }
+    }
 
-        // Arrow head
+    private fun drawArrowHead(gc: javafx.scene.canvas.GraphicsContext, x: Double, y: Double, angle: Double, size: Double) {
         gc.fill = gc.stroke
         val arrowAngle = Math.PI / 6
-        val x3 = ex - arrowSize * cos(angle - arrowAngle)
-        val y3 = ey - arrowSize * sin(angle - arrowAngle)
-        val x4 = ex - arrowSize * cos(angle + arrowAngle)
-        val y4 = ey - arrowSize * sin(angle + arrowAngle)
+        val x1 = x - size * cos(angle - arrowAngle)
+        val y1 = y - size * sin(angle - arrowAngle)
+        val x2 = x - size * cos(angle + arrowAngle)
+        val y2 = y - size * sin(angle + arrowAngle)
 
-        gc.fillPolygon(doubleArrayOf(ex, x3, x4), doubleArrayOf(ey, y3, y4), 3)
+        gc.fillPolygon(doubleArrayOf(x, x1, x2), doubleArrayOf(y, y1, y2), 3)
     }
 }
