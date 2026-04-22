@@ -7,8 +7,7 @@ import org.pcap4j.core.PcapNetworkInterface
 import org.pcap4j.core.RawPacketListener
 import org.pcap4j.packet.EthernetPacket
 import org.pcap4j.packet.IpV4Packet
-import site.meowcat.pkn.model.addFlow
-import site.meowcat.pkn.model.edges
+import site.meowcat.pkn.model.NetworkGraph
 
 fun main() {
     val nifs = Pcaps.findAllDevs()
@@ -47,8 +46,8 @@ fun main() {
         val dst = ip?.header?.dstAddr?.hostAddress
 
         if (src != null && dst != null) {
-            addFlow(src, dst)
-            val edge = edges[src to dst]
+            NetworkGraph.addFlow(src, dst)
+            val edge = NetworkGraph.edges[src to dst]
             println("$src -> $dst (weight: ${edge?.weight}, length: ${packet.length()})")
         }
     })
