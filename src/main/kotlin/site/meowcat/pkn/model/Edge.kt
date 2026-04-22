@@ -34,6 +34,13 @@ object NetworkGraph {
     }
 
     @Synchronized
+    fun addNode(ip: String) {
+        if (!isLocal(ip)) return
+        nodes.add(ip)
+        resolveHostName(ip)
+    }
+
+    @Synchronized
     fun addFlow(src: String, dst: String) {
         if (!isLocal(src) || !isLocal(dst)) return
 
@@ -48,6 +55,8 @@ object NetworkGraph {
         resolveHostName(dst)
     }
 
+    fun getLocalSubnets(): List<String> = localSubnets.toList()
+
     private fun resolveHostName(ip: String) {
         if (hostNames.containsKey(ip)) return
 
@@ -55,6 +64,24 @@ object NetworkGraph {
         hostNames[ip] = ip
 
         java.util.concurrent.CompletableFuture.runAsync {
+            try {
+                // Try avahi-resolve-address first for friendly mDNS names
+                val process = ProcessBuilder("avahi-resolve-address", ip).start()
+                val reader = process.inputStream.bufferedReader()
+                val line = reader.readLine()
+                if (line != null && line.contains(ip)) {
+                    val resolved = line.substringAfter(ip).trim().removeSuffix(".local")
+                    if (resolved.isNotEmpty()) {
+                        synchronized(this) {
+                            hostNames[ip] = resolved
+                        }
+                        return@runAsync
+                    }
+                }
+            } catch (e: Exception) {
+                // Avahi not available or failed, fallback to standard resolution
+            }
+
             try {
                 val hostName = java.net.InetAddress.getByName(ip).hostName
                 synchronized(this) {

@@ -6,6 +6,13 @@ import javafx.scene.text.Font
 import javafx.scene.text.TextAlignment
 import javafx.scene.Scene
 import javafx.scene.Group
+import javafx.scene.layout.VBox
+import javafx.scene.layout.HBox
+import javafx.scene.control.CheckBox
+import javafx.scene.control.TextField
+import javafx.scene.control.Label
+import javafx.geometry.Insets
+import javafx.geometry.Pos
 import javafx.application.Application
 import javafx.stage.Stage
 
@@ -17,14 +24,44 @@ import org.pcap4j.core.Pcaps
 import org.pcap4j.core.PcapNetworkInterface
 import org.pcap4j.core.PcapNativeException
 import site.meowcat.pkn.capture.startCapture
+import site.meowcat.pkn.capture.NetworkScanner
 import kotlin.concurrent.thread
 
 class NetView : Application() {
+    private var showEdges = true
+    private var filterText = ""
+
     override fun start(stage: Stage) {
         val canvas = Canvas(800.0, 800.0)
         val gc = canvas.graphicsContext2D
 
-        val scene = Scene(Group(canvas))
+        val controls = HBox(10.0).apply {
+            padding = Insets(10.0)
+            alignment = Pos.CENTER_LEFT
+            style = "-fx-background-color: #333333;"
+            
+            val edgeToggle = CheckBox("Show Arrows").apply {
+                isSelected = true
+                textFill = Color.WHITE
+                setOnAction { showEdges = isSelected }
+            }
+            
+            val searchField = TextField().apply {
+                promptText = "Search devices..."
+                textProperty().addListener { _, _, newValue ->
+                    filterText = newValue.lowercase()
+                }
+            }
+            
+            val searchLabel = Label("Search:").apply {
+                textFill = Color.WHITE
+            }
+            
+            children.addAll(edgeToggle, searchLabel, searchField)
+        }
+
+        val root = VBox(controls, canvas)
+        val scene = Scene(root)
         stage.scene = scene
         stage.title = "NetView - Pickle Network Debugger"
         stage.show()
@@ -42,6 +79,7 @@ class NetView : Application() {
                 thread(isDaemon = true) {
                     startCapture(handle)
                 }
+                NetworkScanner.startScanning()
             } catch (e: PcapNativeException) {
                 System.err.println("Failed to open interface: ${e.message}")
             }
@@ -63,11 +101,15 @@ class NetView : Application() {
         gc.fill = Color.web("#1e1e1e")
         gc.fillRect(0.0, 0.0, w, h)
 
-        val nodeList = NetworkGraph.nodes.toList().sorted()
+        val filteredNodes = NetworkGraph.nodes.filter { ip ->
+            val displayName = NetworkGraph.getDisplayName(ip).lowercase()
+            filterText.isEmpty() || displayName.contains(filterText) || ip.contains(filterText)
+        }.sorted()
+
         val positions = mutableMapOf<String, Pair<Double, Double>>()
 
         val padding = 100.0
-        val nodeCount = nodeList.size
+        val nodeCount = filteredNodes.size
         if (nodeCount == 0) return
 
         // Grid Layout Calculation
@@ -77,7 +119,7 @@ class NetView : Application() {
         val cellWidth = (w - 2 * padding) / columns
         val cellHeight = (h - 2 * padding) / rows
 
-        nodeList.forEachIndexed { index, node ->
+        filteredNodes.forEachIndexed { index, node ->
             val col = index % columns
             val row = index / columns
 
@@ -110,16 +152,18 @@ class NetView : Application() {
         }
 
         // Draw edges as arrows
-        NetworkGraph.edges.values.forEach { edge ->
-            val start = positions[edge.src] ?: return@forEach
-            val end = positions[edge.dst] ?: return@forEach
+        if (showEdges) {
+            NetworkGraph.edges.values.forEach { edge ->
+                val start = positions[edge.src] ?: return@forEach
+                val end = positions[edge.dst] ?: return@forEach
 
-            if (edge.src == edge.dst) return@forEach // Skip self-loops for now or draw differently
+                if (edge.src == edge.dst) return@forEach // Skip self-loops for now or draw differently
 
-            gc.stroke = Color.web("#00ff00", 0.6)
-            gc.lineWidth = (1 + edge.weight.coerceAtMost(5)).toDouble()
+                gc.stroke = Color.web("#00ff00", 0.6)
+                gc.lineWidth = (1 + edge.weight.coerceAtMost(5)).toDouble()
 
-            drawArrow(gc, start.first, start.second, end.first, end.second)
+                drawArrow(gc, start.first, start.second, end.first, end.second)
+            }
         }
     }
 
