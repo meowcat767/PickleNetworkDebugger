@@ -1,9 +1,10 @@
 package site.meowcat.pkn
 
+import org.pcap4j.core.PcapNativeException
 import org.pcap4j.core.Pcaps
 import org.pcap4j.core.PcapNetworkInterface
 import org.pcap4j.core.RawPacketListener
-
+import org.pcap4j.core.PcapIpV4Address
 fun main() {
     val nifs = Pcaps.findAllDevs()
 
@@ -14,11 +15,24 @@ fun main() {
 
     println("Using: ${nif.name}")
 
-    val handle = nif.openLive(
-        65536,
-        PcapNetworkInterface.PromiscuousMode.PROMISCUOUS,
-        10
-    )
+    val handle = try {
+        nif.openLive(
+            65536,
+            PcapNetworkInterface.PromiscuousMode.PROMISCUOUS,
+            10
+        )
+    } catch (e: PcapNativeException) {
+        if (e.message?.contains("permission", ignoreCase = true) == true) {
+            System.err.println("\nERROR: Permission denied while opening interface ${nif.name}")
+            System.err.println("To fix this, you can either:")
+            System.err.println("1. Run the application with sudo.")
+            System.err.println("2. Grant CAP_NET_RAW and CAP_NET_ADMIN capabilities to your Java binary:")
+            System.err.println("   sudo setcap cap_net_raw,cap_net_admin=eip \$(readlink -f \$(which java))")
+        } else {
+            System.err.println("Native error: ${e.message}")
+        }
+        return
+    }
 
     handle.loop(10, RawPacketListener { packet ->
         println("Packet length: ${packet.size}")
