@@ -67,27 +67,27 @@ class NetView : Application() {
         val positions = mutableMapOf<String, Pair<Double, Double>>()
 
         val padding = 100.0
-        val availableHeight = h - 2 * padding
-        val spacing = if (nodeList.size > 1) availableHeight / (nodeList.size - 1) else 0.0
+        val nodeCount = nodeList.size
+        if (nodeCount == 0) return
 
-        // Draw nodes in two lines (left for high weight source, right for destination)
-        // For simplicity, let's keep them in one line but make them look better.
-        // Actually, "all devices in line" might mean a vertical or horizontal list.
-        // Let's try two columns if there are many nodes, or one column centered.
-        
-        val leftX = w * 0.25
-        val rightX = w * 0.75
-        
-        // Let's just use one column for now as "in line" suggests.
-        // But maybe offset them a bit or add some background boxes.
+        // Grid Layout Calculation
+        val columns = Math.ceil(Math.sqrt(nodeCount.toDouble())).toInt()
+        val rows = Math.ceil(nodeCount.toDouble() / columns).toInt()
+
+        val cellWidth = (w - 2 * padding) / columns
+        val cellHeight = (h - 2 * padding) / rows
+
         nodeList.forEachIndexed { index, node ->
-            val x = w / 3 // Move to the left a bit to give room for labels
-            val y = padding + index * spacing
+            val col = index % columns
+            val row = index / columns
+
+            val x = padding + col * cellWidth + cellWidth / 2
+            val y = padding + row * cellHeight + cellHeight / 2
             positions[node] = x to y
 
-            // Background highlight for the device row
+            // Background highlight for the device cell
             gc.fill = Color.web("#2d2d2d")
-            gc.fillRoundRect(x - 40, y - 25, w * 0.6, 50.0, 15.0, 15.0)
+            gc.fillRoundRect(x - 70, y - 40, 140.0, 80.0, 15.0, 15.0)
 
             // Node Circle
             gc.fill = Color.web("#4a9eff")
@@ -95,10 +95,18 @@ class NetView : Application() {
 
             // IP/Name Label
             gc.fill = Color.WHITE
-            gc.font = Font.font("Monospaced", 14.0)
-            gc.textAlign = TextAlignment.LEFT
+            gc.font = Font.font("Monospaced", 10.0)
+            gc.textAlign = TextAlignment.CENTER
             val displayName = NetworkGraph.getDisplayName(node)
-            gc.fillText(displayName, x + 30, y + 5)
+            
+            // Split display name if too long
+            if (displayName.contains(" (")) {
+                val parts = displayName.split(" (")
+                gc.fillText(parts[0], x, y + 30)
+                gc.fillText("(" + parts[1], x, y + 45)
+            } else {
+                gc.fillText(displayName, x, y + 30)
+            }
         }
 
         // Draw edges as arrows
@@ -126,24 +134,31 @@ class NetView : Application() {
         val ex = x2 - offset * cos(angle)
         val ey = y2 - offset * sin(angle)
 
-        // If it's a vertical-ish line, curve it slightly so return traffic doesn't overlap
-        if (Math.abs(x2 - x1) < 1.0) {
-            val controlX = x1 + (if (y2 > y1) 40.0 else -40.0)
-            val controlY = (y1 + y2) / 2
-            gc.beginPath()
-            gc.moveTo(sx, sy)
-            gc.quadraticCurveTo(controlX, controlY, ex, ey)
-            gc.stroke()
-            
-            // Adjust arrow head position for curve
-            // For simplicity, I'll just draw the arrow at the end of the curve
-            // The angle at the end of quadratic curve is between (controlX, controlY) and (ex, ey)
-            val endAngle = Math.atan2(ey - controlY, ex - controlX)
-            drawArrowHead(gc, ex, ey, endAngle, arrowSize)
-        } else {
-            gc.strokeLine(sx, sy, ex, ey)
-            drawArrowHead(gc, ex, ey, angle, arrowSize)
-        }
+        // If it's a straight line, we can just draw it, but curve it slightly if return traffic exists
+        // Since we are in a grid, we might have many overlapping lines.
+        // Let's use a small curve for everything to make it look "organic" and avoid total overlaps.
+        
+        val midX = (sx + ex) / 2
+        val midY = (sy + ey) / 2
+        
+        // Offset control point perpendicular to the line
+        val dx = ex - sx
+        val dy = ey - sy
+        val len = Math.sqrt(dx * dx + dy * dy)
+        val nx = -dy / len
+        val ny = dx / len
+        
+        val curveAmount = 20.0
+        val controlX = midX + nx * curveAmount
+        val controlY = midY + ny * curveAmount
+
+        gc.beginPath()
+        gc.moveTo(sx, sy)
+        gc.quadraticCurveTo(controlX, controlY, ex, ey)
+        gc.stroke()
+        
+        val endAngle = Math.atan2(ey - controlY, ex - controlX)
+        drawArrowHead(gc, ex, ey, endAngle, arrowSize)
     }
 
     private fun drawArrowHead(gc: javafx.scene.canvas.GraphicsContext, x: Double, y: Double, angle: Double, size: Double) {

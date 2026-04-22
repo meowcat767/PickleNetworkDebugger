@@ -6,9 +6,37 @@ object NetworkGraph {
     val nodes = mutableSetOf<String>()
     val edges = mutableMapOf<Pair<String, String>, Edge>()
     private val hostNames = mutableMapOf<String, String>()
+    private val localSubnets = mutableListOf<String>()
+
+    init {
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val nif = interfaces.nextElement()
+                if (nif.isLoopback || !nif.isUp) continue
+                for (addr in nif.interfaceAddresses) {
+                    val ip = addr.address
+                    if (ip is java.net.Inet4Address) {
+                        val network = "${ip.hostAddress.substringBeforeLast(".")}.0"
+                        localSubnets.add(network)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun isLocal(ip: String): Boolean {
+        if (ip == "127.0.0.1") return true
+        val network = "${ip.substringBeforeLast(".")}.0"
+        return localSubnets.contains(network)
+    }
 
     @Synchronized
     fun addFlow(src: String, dst: String) {
+        if (!isLocal(src) || !isLocal(dst)) return
+
         nodes.add(src)
         nodes.add(dst)
 
