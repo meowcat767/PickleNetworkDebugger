@@ -30,6 +30,13 @@ import kotlin.concurrent.thread
 class NetView : Application() {
     private var showEdges = true
     private var filterText = ""
+    
+    // Zoom and Pan state
+    private var scale = 1.0
+    private var offsetX = 0.0
+    private var offsetY = 0.0
+    private var mouseAnchorX = 0.0
+    private var mouseAnchorY = 0.0
 
     override fun start(stage: Stage) {
         val canvas = Canvas(800.0, 800.0)
@@ -62,6 +69,46 @@ class NetView : Application() {
 
         val root = VBox(controls, canvas)
         val scene = Scene(root)
+        
+        // Bind canvas size to scene size
+        canvas.widthProperty().bind(root.widthProperty())
+        canvas.heightProperty().bind(root.heightProperty().subtract(controls.heightProperty()))
+        
+        // Mouse events for Zoom and Pan
+        canvas.setOnMousePressed { event ->
+            if (!NetworkScanner.isInitialScanComplete) return@setOnMousePressed
+            mouseAnchorX = event.x
+            mouseAnchorY = event.y
+        }
+
+        canvas.setOnMouseDragged { event ->
+            if (!NetworkScanner.isInitialScanComplete) return@setOnMouseDragged
+            offsetX += (event.x - mouseAnchorX)
+            offsetY += (event.y - mouseAnchorY)
+            mouseAnchorX = event.x
+            mouseAnchorY = event.y
+        }
+
+        canvas.setOnScroll { event ->
+            if (!NetworkScanner.isInitialScanComplete) return@setOnScroll
+            val delta = event.deltaY
+            val zoomFactor = if (delta > 0) 1.1 else 0.9
+            
+            // Zoom towards mouse position
+            val mouseX = event.x
+            val mouseY = event.y
+            
+            val relX = (mouseX - offsetX) / scale
+            val relY = (mouseY - offsetY) / scale
+            
+            scale *= zoomFactor
+            
+            offsetX = mouseX - relX * scale
+            offsetY = mouseY - relY * scale
+            
+            event.consume()
+        }
+
         stage.scene = scene
         stage.title = "NetView - Pickle Network Debugger"
         stage.show()
@@ -100,6 +147,10 @@ class NetView : Application() {
     fun draw(gc: javafx.scene.canvas.GraphicsContext, w: Double, h: Double) {
         gc.fill = Color.web("#1e1e1e")
         gc.fillRect(0.0, 0.0, w, h)
+
+        gc.save()
+        gc.translate(offsetX, offsetY)
+        gc.scale(scale, scale)
 
         val filteredNodes = NetworkGraph.nodes.filter { ip ->
             val displayName = NetworkGraph.getDisplayName(ip).lowercase()
@@ -164,6 +215,21 @@ class NetView : Application() {
 
                 drawArrow(gc, start.first, start.second, end.first, end.second)
             }
+        }
+        gc.restore()
+
+        // Draw overlay if scanning
+        if (!NetworkScanner.isInitialScanComplete) {
+            gc.fill = Color.web("#000000", 0.7)
+            gc.fillRect(0.0, 0.0, w, h)
+            
+            gc.fill = Color.WHITE
+            gc.font = Font.font("Monospaced", 24.0)
+            gc.textAlign = TextAlignment.CENTER
+            gc.fillText("Scanning Network...", w / 2, h / 2)
+            
+            gc.font = Font.font("Monospaced", 14.0)
+            gc.fillText("Please wait for the initial discovery to complete", w / 2, h / 2 + 40)
         }
     }
 

@@ -5,12 +5,20 @@ import java.net.InetAddress
 import kotlin.concurrent.thread
 
 object NetworkScanner {
+    var isInitialScanComplete = false
+        private set
+
     fun startScanning() {
         thread(isDaemon = true) {
+            var firstScan = true
             while (true) {
                 val subnets = NetworkGraph.getLocalSubnets()
                 for (subnet in subnets) {
                     scanSubnet(subnet)
+                }
+                if (firstScan) {
+                    isInitialScanComplete = true
+                    firstScan = false
                 }
                 Thread.sleep(60000) // Scan every minute
             }

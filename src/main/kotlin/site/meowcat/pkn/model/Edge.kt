@@ -64,32 +64,49 @@ object NetworkGraph {
         hostNames[ip] = ip
 
         java.util.concurrent.CompletableFuture.runAsync {
+            // 1. Try avahi-resolve-address
             try {
-                // Try avahi-resolve-address first for friendly mDNS names
                 val process = ProcessBuilder("avahi-resolve-address", ip).start()
                 val reader = process.inputStream.bufferedReader()
                 val line = reader.readLine()
                 if (line != null && line.contains(ip)) {
                     val resolved = line.substringAfter(ip).trim().removeSuffix(".local")
-                    if (resolved.isNotEmpty()) {
-                        synchronized(this) {
-                            hostNames[ip] = resolved
-                        }
+                    if (resolved.isNotEmpty() && resolved != ip) {
+                        synchronized(this) { hostNames[ip] = resolved }
                         return@runAsync
                     }
                 }
-            } catch (e: Exception) {
-                // Avahi not available or failed, fallback to standard resolution
-            }
+            } catch (e: Exception) {}
 
+            // 2. Try avahi-browse (more intensive, but can find names that resolve-address misses)
+            try {
+                val process = ProcessBuilder("avahi-browse", "-t", "-r", "-a").start()
+                val reader = process.inputStream.bufferedReader()
+                var currentAddress: String? = null
+                var currentHostname: String? = null
+                
+                reader.forEachLine { line ->
+                    if (line.contains("address = [")) {
+                        currentAddress = line.substringAfter("[").substringBefore("]")
+                    }
+                    if (line.contains("hostname = [")) {
+                        currentHostname = line.substringAfter("[").substringBefore("]").removeSuffix(".local")
+                    }
+                    if (currentAddress == ip && currentHostname != null) {
+                        synchronized(this) { hostNames[ip] = currentHostname!! }
+                        process.destroy()
+                        return@forEachLine
+                    }
+                }
+            } catch (e: Exception) {}
+
+            // 3. Fallback to standard resolution
             try {
                 val hostName = java.net.InetAddress.getByName(ip).hostName
-                synchronized(this) {
-                    hostNames[ip] = hostName
+                if (hostName != ip) {
+                    synchronized(this) { hostNames[ip] = hostName }
                 }
-            } catch (e: Exception) {
-                // Keep the IP as host name if resolution fails
-            }
+            } catch (e: Exception) {}
         }
     }
 
