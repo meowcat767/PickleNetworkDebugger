@@ -73,7 +73,7 @@ class NetView : Application() {
         // Key events for navigation
         scene.setOnKeyPressed { event ->
             if (!NetworkScanner.isInitialScanComplete) return@setOnKeyPressed
-            val step = 50.0 / scale
+            val step = 30.0
             when (event.code) {
                 javafx.scene.input.KeyCode.UP -> offsetY += step
                 javafx.scene.input.KeyCode.DOWN -> offsetY -= step
@@ -90,8 +90,8 @@ class NetView : Application() {
         // Mouse events for Zoom and Pan
         canvas.setOnMousePressed { event ->
             if (!NetworkScanner.isInitialScanComplete) return@setOnMousePressed
-            mouseAnchorX = event.x
-            mouseAnchorY = event.y
+            offsetX += (event.x - mouseAnchorX) / scale
+            offsetY += (event.y - mouseAnchorY) / scale
         }
 
         canvas.setOnMouseDragged { event ->
