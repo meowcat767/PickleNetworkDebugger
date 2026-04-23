@@ -32,6 +32,8 @@ class NetView : Application() {
     private var showEdges = true
     private var filterText = ""
 
+    // generic device names
+    private val generic = setOf("android", "Android", "localhost", "none", "device")
     // Zoom and Pan state
     private var scale = 1.0
     private var offsetX = 0.0
