@@ -33,7 +33,7 @@ class NetView : Application() {
     private var filterText = ""
 
     // generic device names
-    private val generic = setOf("android", "Android", "localhost", "none", "device")
+    private val generic = setOf("android", "Android", "localhost", "none", "device", "\\040none\\041")
     // Zoom and Pan state
     private var scale = 1.0
     private var offsetX = 0.0
@@ -174,7 +174,7 @@ class NetView : Application() {
         gc.scale(scale, scale)
 
         val filteredNodes = NetworkGraph.nodes.filter { ip ->
-            val displayName = NetworkGraph.getDisplayName(ip).lowercase()
+            val displayName = prettyName(ip).lowercase()
             filterText.isEmpty() || displayName.contains(filterText) || ip.contains(filterText)
         }.sorted()
 
@@ -220,7 +220,7 @@ class NetView : Application() {
             gc.fill = Color.WHITE
             gc.font = Font.font("Monospaced", 10.0)
             gc.textAlign = TextAlignment.CENTER
-            val displayName = NetworkGraph.getDisplayName(node)
+            val displayName = prettyName(node)
 
             // Split display name if too long
             if (displayName.contains(" (")) {
@@ -326,5 +326,15 @@ class NetView : Application() {
         val y2 = y - size * sin(angle + arrowAngle)
 
         gc.fillPolygon(doubleArrayOf(x, x1, x2), doubleArrayOf(y, y1, y2), 3)
+    }
+
+    fun prettyName(ip: String): String {
+        val name = NetworkGraph.getDetectedName(ip)
+
+        return if (name.lowercase() in generic) {
+            "$name ($ip)"
+        } else {
+            name
+        }
     }
 }

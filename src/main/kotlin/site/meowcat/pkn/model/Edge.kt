@@ -201,4 +201,9 @@ object NetworkGraph {
         val hostName = hostNames[ip] ?: ip
         return if (hostName == ip) ip else "$hostName ($ip)"
     }
+
+    @Synchronized
+    fun getDetectedName(ip: String): String {
+        return hostNames[ip] ?: ip
+    }
 }
