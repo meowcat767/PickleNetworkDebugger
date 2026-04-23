@@ -7,8 +7,10 @@ object NetworkGraph {
     val edges = mutableMapOf<Pair<String, String>, Edge>()
     private val hostNames = mutableMapOf<String, String>()
     private val localSubnets = mutableListOf<java.net.InterfaceAddress>()
+    private var cachedGateway: String? = null
 
     init {
+        cachedGateway = site.meowcat.pkn.capture.getGateway()
         try {
             val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
@@ -18,7 +20,7 @@ object NetworkGraph {
                 
                 val name = nif.name.lowercase()
                 if (name.contains("docker") || name.contains("tailscale") || 
-                    name.contains("veth") || name.contains("br-") || name.contains("tun")) continue
+                    name.contains("veth") || name.contains("tun")) continue
 
                 for (addr in nif.interfaceAddresses) {
                     val ip = addr.address
@@ -74,14 +76,44 @@ object NetworkGraph {
     }
 
     @Synchronized
+    fun getGateway(): String? {
+        if (cachedGateway == null) {
+            cachedGateway = site.meowcat.pkn.capture.getGateway()
+        }
+        return cachedGateway
+    }
+
+    @Synchronized
     fun addFlow(src: String, dst: String, requestInfo: String? = null) {
-        if (!isLocal(src) || !isLocal(dst)) return
+        val srcLocal = isLocal(src)
+        val dstLocal = isLocal(dst)
 
-        if (nodes.add(src)) resolveHostName(src)
-        if (nodes.add(dst)) resolveHostName(dst)
+        if (!srcLocal && !dstLocal) return
 
-        val key = src to dst
-        val edge = edges.getOrPut(key) { Edge(src, dst, 0) }
+        if (srcLocal) {
+            if (nodes.add(src)) resolveHostName(src)
+        }
+        if (dstLocal) {
+            if (nodes.add(dst)) resolveHostName(dst)
+        }
+
+        val router = getGateway()
+        
+        // Determine the nodes to use for the edge in the graph
+        val effectiveSrc = if (srcLocal) src else (router ?: src)
+        val effectiveDst = if (dstLocal) dst else (router ?: dst)
+
+        if (effectiveSrc == effectiveDst) {
+            // Self-traffic or traffic to/from router when it's the gateway
+            // We still want to see it if it has useful request info
+            if (requestInfo != null && srcLocal && dstLocal) {
+                // If it's local-to-local and same IP, maybe skip or handle
+            }
+            if (effectiveSrc == effectiveDst) return
+        }
+
+        val key = effectiveSrc to effectiveDst
+        val edge = edges.getOrPut(key) { Edge(effectiveSrc, effectiveDst, 0) }
         edge.weight++
         edge.lastPacketTime = System.currentTimeMillis()
         if (requestInfo != null) {

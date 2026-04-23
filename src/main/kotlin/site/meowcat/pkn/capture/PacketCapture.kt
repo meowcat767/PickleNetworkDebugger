@@ -43,6 +43,12 @@ fun startCapture(handle: PcapHandle) {
                 }
             }
 
+            // If the request info is still just the gateway's IP or name, it's not very helpful as a label
+            val gateway = NetworkGraph.getGateway()
+            if (requestInfo == gateway || (gateway != null && NetworkGraph.getDisplayName(gateway).startsWith(requestInfo!!))) {
+                requestInfo = null
+            }
+
             NetworkGraph.addFlow(src, dst, requestInfo)
         }
     })

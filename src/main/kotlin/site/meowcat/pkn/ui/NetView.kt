@@ -176,7 +176,7 @@ class NetView : Application() {
             filterText.isEmpty() || displayName.contains(filterText) || ip.contains(filterText)
         }.sorted()
 
-        val router = getGateway()
+        val router = NetworkGraph.getGateway()
 
         val positions = mutableMapOf<String, Pair<Double, Double>>()
         val centerX = w / 2
