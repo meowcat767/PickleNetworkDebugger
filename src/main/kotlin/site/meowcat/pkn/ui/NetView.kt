@@ -332,9 +332,9 @@ class NetView : Application() {
         val name = NetworkGraph.getDetectedName(ip)
 
         return if (name.lowercase() in generic) {
-            "$name ($ip)"
+            "$name, unknown ($ip)"
         } else {
-            name
+            "$name ($ip)"
         }
     }
 }
