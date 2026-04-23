@@ -25,6 +25,7 @@ import org.pcap4j.core.PcapNetworkInterface
 import org.pcap4j.core.PcapNativeException
 import site.meowcat.pkn.capture.startCapture
 import site.meowcat.pkn.capture.NetworkScanner
+import site.meowcat.pkn.capture.getGateway
 import kotlin.concurrent.thread
 
 class NetView : Application() {
@@ -39,6 +40,7 @@ class NetView : Application() {
     private var mouseAnchorY = 0.0
 
     override fun start(stage: Stage) {
+
         val canvas = Canvas(800.0, 800.0)
         val gc = canvas.graphicsContext2D
 
@@ -174,31 +176,35 @@ class NetView : Application() {
             filterText.isEmpty() || displayName.contains(filterText) || ip.contains(filterText)
         }.sorted()
 
-        val positions = mutableMapOf<String, Pair<Double, Double>>()
+        val router = getGateway()
 
-        val padding = 150.0
+        val positions = mutableMapOf<String, Pair<Double, Double>>()
+        val centerX = w / 2
+        val centerY = h / 2
+
+        if (router != null && router in filteredNodes) {
+            positions[router] = centerX to centerY
+        }
+
         val nodeCount = filteredNodes.size
         if (nodeCount == 0) return
 
-        // Grid Layout Calculation
-        val columns = Math.ceil(Math.sqrt(nodeCount.toDouble())).toInt()
-        val rows = Math.ceil(nodeCount.toDouble() / columns).toInt()
+        val others = filteredNodes.filter { it != router }
+        val radius = 250.0
 
-        val cellWidth = (w - 2 * padding) / columns.coerceAtLeast(1)
-        val cellHeight = (h - 2 * padding) / rows.coerceAtLeast(1)
+        others.forEachIndexed { index, node ->
+            val angle = (2 * Math.PI * index) / others.size
 
-        // Ensure minimum cell size for spacing
-        val minCellSize = 200.0
-        val actualCellWidth = cellWidth.coerceAtLeast(minCellSize)
-        val actualCellHeight = cellHeight.coerceAtLeast(minCellSize)
+            val x = centerX + cos(angle) * radius
+            val y = centerY + sin(angle) * radius
 
-        filteredNodes.forEachIndexed { index, node ->
-            val col = index % columns
-            val row = index / columns
-
-            val x = padding + col * actualCellWidth + actualCellWidth / 2
-            val y = padding + row * actualCellHeight + actualCellHeight / 2
             positions[node] = x to y
+        }
+
+        filteredNodes.forEach { node ->
+            val pos = positions[node] ?: return@forEach
+            val x = pos.first
+            val y = pos.second
 
             // Background highlight for the device cell
             gc.fill = Color.web("#2d2d2d")
