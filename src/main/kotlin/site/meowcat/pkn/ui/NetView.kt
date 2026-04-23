@@ -190,7 +190,7 @@ class NetView : Application() {
         if (nodeCount == 0) return
 
         val others = filteredNodes.filter { it != router }
-        val radius = 250.0
+        val radius = 400.0
 
         others.forEachIndexed { index, node ->
             val angle = (2 * Math.PI * index) / others.size
