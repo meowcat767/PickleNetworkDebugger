@@ -7,6 +7,7 @@ import org.pcap4j.packet.EthernetPacket
 import org.pcap4j.packet.TcpPacket
 import org.pcap4j.packet.UdpPacket
 import site.meowcat.pkn.model.NetworkGraph
+import site.meowcat.pkn.`object`.TrafficStats
 
 fun startCapture(handle: PcapHandle) {
 
@@ -49,6 +50,7 @@ fun startCapture(handle: PcapHandle) {
                 requestInfo = null
             }
 
+            TrafficStats.record(src, dst, packet.length())
             NetworkGraph.addFlow(src, dst, requestInfo)
         }
     })
