@@ -2,7 +2,7 @@
 
 <details>
 <summary>Reading from GitHub?</summary>
-Please note that PRs and Issues on GitHub will be rejected, and they should be made at "https://git.meowcat.site/meowcat/PickleNetworkDebugger"
+Please note that PRs and Issues on GitHub will be rejected, and they should be made at https://git.meowcat.site/meowcat/PickleNetworkDebugger
 </details>
 A real-time network traffic visualization tool written in Kotlin using JavaFX and Pcap4J.
 
