@@ -249,7 +249,7 @@ class NetView : Application() {
             gc.fill = Color.WHITE
             gc.font = Font.font("Monospaced", 24.0)
             gc.textAlign = TextAlignment.CENTER
-            gc.fillText("Scanning Network...", w / 2, h / 2)
+            gc.fillText("Probing Network...", w / 2, h / 2)
 
             gc.font = Font.font("Monospaced", 14.0)
             gc.fillText("Please wait for the initial discovery to complete", w / 2, h / 2 + 40)
