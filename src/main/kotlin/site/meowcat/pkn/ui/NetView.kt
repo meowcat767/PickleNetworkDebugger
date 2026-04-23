@@ -30,7 +30,7 @@ import kotlin.concurrent.thread
 class NetView : Application() {
     private var showEdges = true
     private var filterText = ""
-    
+
     // Zoom and Pan state
     private var scale = 1.0
     private var offsetX = 0.0
@@ -46,30 +46,30 @@ class NetView : Application() {
             padding = Insets(10.0)
             alignment = Pos.CENTER_LEFT
             style = "-fx-background-color: #333333;"
-            
+
             val edgeToggle = CheckBox("Show Arrows").apply {
                 isSelected = true
                 textFill = Color.WHITE
                 setOnAction { showEdges = isSelected }
             }
-            
+
             val searchField = TextField().apply {
                 promptText = "Search devices..."
                 textProperty().addListener { _, _, newValue ->
                     filterText = newValue.lowercase()
                 }
             }
-            
+
             val searchLabel = Label("Search:").apply {
                 textFill = Color.WHITE
             }
-            
+
             children.addAll(edgeToggle, searchLabel, searchField)
         }
 
         val root = VBox(controls, canvas)
         val scene = Scene(root)
-        
+
         // Key events for navigation
         scene.setOnKeyPressed { event ->
             if (!NetworkScanner.isInitialScanComplete) return@setOnKeyPressed
@@ -82,11 +82,11 @@ class NetView : Application() {
                 else -> {}
             }
         }
-        
+
         // Bind canvas size to scene size
         canvas.widthProperty().bind(root.widthProperty())
         canvas.heightProperty().bind(root.heightProperty().subtract(controls.heightProperty()))
-        
+
         // Mouse events for Zoom and Pan
         canvas.setOnMousePressed { event ->
             if (!NetworkScanner.isInitialScanComplete) return@setOnMousePressed
@@ -105,23 +105,23 @@ class NetView : Application() {
         canvas.setOnScroll { event ->
             if (!NetworkScanner.isInitialScanComplete) return@setOnScroll
             val delta = event.deltaY
-            
+
             // Zoom towards mouse position
             val mouseX = event.x
             val mouseY = event.y
-            
+
             val relX = (mouseX - offsetX) / scale
             val relY = (mouseY - offsetY) / scale
 
             val zoomFactor = if (delta > 0) 1.1 else 0.9
             val newScale = (scale * zoomFactor).coerceIn(0.1, 10.0)
-            
+
             if (newScale != scale) {
                 scale = newScale
                 offsetX = mouseX - relX * scale
                 offsetY = mouseY - relY * scale
             }
-            
+
             event.consume()
         }
 
@@ -185,7 +185,7 @@ class NetView : Application() {
 
         val cellWidth = (w - 2 * padding) / columns.coerceAtLeast(1)
         val cellHeight = (h - 2 * padding) / rows.coerceAtLeast(1)
-        
+
         // Ensure minimum cell size for spacing
         val minCellSize = 200.0
         val actualCellWidth = cellWidth.coerceAtLeast(minCellSize)
@@ -212,7 +212,7 @@ class NetView : Application() {
             gc.font = Font.font("Monospaced", 10.0)
             gc.textAlign = TextAlignment.CENTER
             val displayName = NetworkGraph.getDisplayName(node)
-            
+
             // Split display name if too long
             if (displayName.contains(" (")) {
                 val parts = displayName.split(" (")
@@ -244,12 +244,12 @@ class NetView : Application() {
         if (!NetworkScanner.isInitialScanComplete) {
             gc.fill = Color.web("#000000", 0.7)
             gc.fillRect(0.0, 0.0, w, h)
-            
+
             gc.fill = Color.WHITE
             gc.font = Font.font("Monospaced", 24.0)
             gc.textAlign = TextAlignment.CENTER
             gc.fillText("Scanning Network...", w / 2, h / 2)
-            
+
             gc.font = Font.font("Monospaced", 14.0)
             gc.fillText("Please wait for the initial discovery to complete", w / 2, h / 2 + 40)
         }
@@ -268,14 +268,14 @@ class NetView : Application() {
 
         val midX = (sx + ex) / 2
         val midY = (sy + ey) / 2
-        
+
         // Offset control point perpendicular to the line
         val dx = ex - sx
         val dy = ey - sy
         val len = Math.sqrt(dx * dx + dy * dy).coerceAtLeast(1.0)
         val nx = -dy / len
         val ny = dx / len
-        
+
         val curveAmount = 30.0
         val controlX = midX + nx * curveAmount
         val controlY = midY + ny * curveAmount
@@ -284,24 +284,24 @@ class NetView : Application() {
         gc.moveTo(sx, sy)
         gc.quadraticCurveTo(controlX, controlY, ex, ey)
         gc.stroke()
-        
+
         // Draw label along the curve (at t=0.5)
         if (label != null) {
             val tx = 0.25 * sx + 0.5 * controlX + 0.25 * ex
             val ty = 0.25 * sy + 0.5 * controlY + 0.25 * ey
-            
+
             gc.save()
             gc.fill = Color.web("#00ff00", 0.9)
             gc.font = Font.font("Monospaced", 8.0)
             gc.textAlign = TextAlignment.CENTER
-            
+
             // Clean up label for the arrow (just the name or just IP if too long)
             val shortLabel = if (label.contains(" (")) label.substringBefore(" (") else label
-            
+
             gc.fillText(shortLabel, tx, ty - 5)
             gc.restore()
         }
-        
+
         val endAngle = Math.atan2(ey - controlY, ex - controlX)
         drawArrowHead(gc, ex, ey, endAngle, arrowSize)
     }
