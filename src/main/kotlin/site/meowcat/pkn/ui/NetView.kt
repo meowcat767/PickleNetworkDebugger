@@ -16,6 +16,7 @@ import javafx.geometry.Pos
 import javafx.application.Application
 import javafx.scene.control.Button
 import javafx.stage.Stage
+import javafx.scene.image.Image
 
 import site.meowcat.pkn.model.NetworkGraph
 import kotlin.math.sin
@@ -80,6 +81,9 @@ class NetView : Application() {
 
         val root = VBox(controls, canvas)
         val scene = Scene(root)
+        stage.icons.add(
+            Image(javaClass.getResourceAsStream("/site/meowcat/pkn/icon.png"))
+        )
 
         // Key events for navigation
         scene.setOnKeyPressed { event ->
