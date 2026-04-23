@@ -6,19 +6,24 @@ object NetworkGraph {
     val nodes = mutableSetOf<String>()
     val edges = mutableMapOf<Pair<String, String>, Edge>()
     private val hostNames = mutableMapOf<String, String>()
-    private val localSubnets = mutableListOf<String>()
+    private val localSubnets = mutableListOf<java.net.InterfaceAddress>()
 
     init {
         try {
             val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
                 val nif = interfaces.nextElement()
+                // Skip loopback, down, and common virtual/VPN interfaces
                 if (nif.isLoopback || !nif.isUp) continue
+                
+                val name = nif.name.lowercase()
+                if (name.contains("docker") || name.contains("tailscale") || 
+                    name.contains("veth") || name.contains("br-") || name.contains("tun")) continue
+
                 for (addr in nif.interfaceAddresses) {
                     val ip = addr.address
                     if (ip is java.net.Inet4Address) {
-                        val network = "${ip.hostAddress.substringBeforeLast(".")}.0"
-                        localSubnets.add(network)
+                        localSubnets.add(addr)
                     }
                 }
             }
@@ -27,10 +32,37 @@ object NetworkGraph {
         }
     }
 
-    private fun isLocal(ip: String): Boolean {
-        if (ip == "127.0.0.1") return true
-        val network = "${ip.substringBeforeLast(".")}.0"
-        return localSubnets.contains(network)
+    private fun isLocal(ipStr: String): Boolean {
+        if (ipStr == "127.0.0.1") return true
+        val target = try {
+            java.net.InetAddress.getByName(ipStr).address
+        } catch (e: Exception) {
+            return false
+        }
+        
+        for (localAddr in localSubnets) {
+            val localIp = localAddr.address.address
+            val maskLen = localAddr.networkPrefixLength.toInt()
+            if (isInSubnet(target, localIp, maskLen)) return true
+        }
+        return false
+    }
+
+    private fun isInSubnet(target: ByteArray, local: ByteArray, maskLen: Int): Boolean {
+        if (target.size != local.size) return false
+        val bytes = maskLen / 8
+        val bits = maskLen % 8
+        
+        for (i in 0 until bytes) {
+            if (target[i] != local[i]) return false
+        }
+        
+        if (bits > 0) {
+            val mask = (0xFF shl (8 - bits)).toByte()
+            if ((target[bytes].toInt() and mask.toInt()) != (local[bytes].toInt() and mask.toInt())) return false
+        }
+        
+        return true
     }
 
     @Synchronized
@@ -53,7 +85,13 @@ object NetworkGraph {
         edge.weight++
     }
 
-    fun getLocalSubnets(): List<String> = localSubnets.toList()
+    fun getLocalSubnets(): List<String> {
+        return localSubnets.map { addr ->
+            val ip = addr.address.hostAddress
+            val prefix = addr.networkPrefixLength
+            "$ip/$prefix"
+        }
+    }
 
     private fun resolveHostName(ip: String) {
         synchronized(this) {
