@@ -165,8 +165,8 @@ class NetView : Application() {
         gc.fillRect(0.0, 0.0, w, h)
 
         gc.save()
-        gc.translate(offsetX, offsetY)
         gc.scale(scale, scale)
+        gc.translate(offsetX, offsetY)
 
         val filteredNodes = NetworkGraph.nodes.filter { ip ->
             val displayName = NetworkGraph.getDisplayName(ip).lowercase()
