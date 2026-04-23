@@ -73,7 +73,7 @@ class NetView : Application() {
         // Key events for navigation
         scene.setOnKeyPressed { event ->
             if (!NetworkScanner.isInitialScanComplete) return@setOnKeyPressed
-            val step = 30.0
+            val step = 50.0 / scale
             when (event.code) {
                 javafx.scene.input.KeyCode.UP -> offsetY += step
                 javafx.scene.input.KeyCode.DOWN -> offsetY -= step
@@ -90,8 +90,8 @@ class NetView : Application() {
         // Mouse events for Zoom and Pan
         canvas.setOnMousePressed { event ->
             if (!NetworkScanner.isInitialScanComplete) return@setOnMousePressed
-            offsetX += (event.x - mouseAnchorX) / scale
-            offsetY += (event.y - mouseAnchorY) / scale
+            mouseAnchorX = event.x
+            mouseAnchorY = event.y
         }
 
         canvas.setOnMouseDragged { event ->
@@ -105,6 +105,7 @@ class NetView : Application() {
         canvas.setOnScroll { event ->
             if (!NetworkScanner.isInitialScanComplete) return@setOnScroll
             val delta = event.deltaY
+            if (delta == 0.0) return@setOnScroll
 
             // Zoom towards mouse position
             val mouseX = event.x
@@ -113,7 +114,7 @@ class NetView : Application() {
             val relX = (mouseX - offsetX) / scale
             val relY = (mouseY - offsetY) / scale
 
-            val zoomFactor = if (delta > 0) 1.1 else 0.9
+            val zoomFactor = if (delta > 0) 1.1 else 1.0 / 1.1
             val newScale = (scale * zoomFactor).coerceIn(0.1, 10.0)
 
             if (newScale != scale) {
@@ -165,8 +166,8 @@ class NetView : Application() {
         gc.fillRect(0.0, 0.0, w, h)
 
         gc.save()
-        gc.scale(scale, scale)
         gc.translate(offsetX, offsetY)
+        gc.scale(scale, scale)
 
         val filteredNodes = NetworkGraph.nodes.filter { ip ->
             val displayName = NetworkGraph.getDisplayName(ip).lowercase()
