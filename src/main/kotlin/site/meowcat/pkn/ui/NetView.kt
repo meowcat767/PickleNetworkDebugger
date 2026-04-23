@@ -14,6 +14,7 @@ import javafx.scene.control.Label
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.application.Application
+import javafx.scene.control.Button
 import javafx.stage.Stage
 
 import site.meowcat.pkn.model.NetworkGraph
@@ -68,7 +69,13 @@ class NetView : Application() {
                 textFill = Color.WHITE
             }
 
-            children.addAll(edgeToggle, searchLabel, searchField)
+            val statsButton = Button("Traffic Stats").apply {
+                setOnAction {
+                    TopTalkersView().show()
+                }
+            }
+
+            children.addAll(edgeToggle, searchLabel, searchField, statsButton)
         }
 
         val root = VBox(controls, canvas)
