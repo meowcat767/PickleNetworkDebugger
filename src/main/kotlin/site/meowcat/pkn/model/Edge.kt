@@ -1,6 +1,6 @@
 package site.meowcat.pkn.model
 
-data class Edge(val src: String, val dst: String, var weight: Int = 0)
+data class Edge(val src: String, val dst: String, var weight: Int = 0, var lastRequest: String? = null, var lastPacketTime: Long = 0)
 
 object NetworkGraph {
     val nodes = mutableSetOf<String>()
@@ -74,7 +74,7 @@ object NetworkGraph {
     }
 
     @Synchronized
-    fun addFlow(src: String, dst: String) {
+    fun addFlow(src: String, dst: String, requestInfo: String? = null) {
         if (!isLocal(src) || !isLocal(dst)) return
 
         if (nodes.add(src)) resolveHostName(src)
@@ -83,6 +83,10 @@ object NetworkGraph {
         val key = src to dst
         val edge = edges.getOrPut(key) { Edge(src, dst, 0) }
         edge.weight++
+        edge.lastPacketTime = System.currentTimeMillis()
+        if (requestInfo != null) {
+            edge.lastRequest = requestInfo
+        }
     }
 
     fun getLocalSubnets(): List<String> {

@@ -230,19 +230,24 @@ class NetView : Application() {
             }
         }
 
-        // Draw edges as arrows
+        // Draw edges as arrows (flashing for recent activity)
         if (showEdges) {
+            val now = System.currentTimeMillis()
             NetworkGraph.edges.values.forEach { edge ->
+                val timeSinceLastPacket = now - edge.lastPacketTime
+                if (timeSinceLastPacket > 1000) return@forEach // Only flash for 1 second
+
                 val start = positions[edge.src] ?: return@forEach
                 val end = positions[edge.dst] ?: return@forEach
 
-                if (edge.src == edge.dst) return@forEach // Skip self-loops for now or draw differently
+                if (edge.src == edge.dst) return@forEach
 
-                gc.stroke = Color.web("#00ff00", 0.6)
-                gc.lineWidth = (1 + edge.weight.coerceAtMost(5)).toDouble()
+                // Fade out based on time
+                val opacity = (1.0 - (timeSinceLastPacket / 1000.0)).coerceIn(0.0, 1.0)
+                gc.stroke = Color.web("#00ff00", opacity * 0.8)
+                gc.lineWidth = 2.0
 
-                val label = NetworkGraph.getDisplayName(edge.dst)
-                drawArrow(gc, start.first, start.second, end.first, end.second, label)
+                drawArrow(gc, start.first, start.second, end.first, end.second, edge.lastRequest, opacity)
             }
         }
         gc.restore()
@@ -262,7 +267,7 @@ class NetView : Application() {
         }
     }
 
-    private fun drawArrow(gc: javafx.scene.canvas.GraphicsContext, x1: Double, y1: Double, x2: Double, y2: Double, label: String? = null) {
+    private fun drawArrow(gc: javafx.scene.canvas.GraphicsContext, x1: Double, y1: Double, x2: Double, y2: Double, label: String? = null, opacity: Double = 1.0) {
         val arrowSize = 10.0
         val angle = Math.atan2(y2 - y1, x2 - x1)
 
@@ -298,14 +303,11 @@ class NetView : Application() {
             val ty = 0.25 * sy + 0.5 * controlY + 0.25 * ey
 
             gc.save()
-            gc.fill = Color.web("#00ff00", 0.9)
-            gc.font = Font.font("Monospaced", 8.0)
+            gc.fill = Color.web("#00ff00", opacity)
+            gc.font = Font.font("Monospaced", 10.0)
             gc.textAlign = TextAlignment.CENTER
 
-            // Clean up label for the arrow (just the name or just IP if too long)
-            val shortLabel = if (label.contains(" (")) label.substringBefore(" (") else label
-
-            gc.fillText(shortLabel, tx, ty - 5)
+            gc.fillText(label, tx, ty - 5)
             gc.restore()
         }
 
