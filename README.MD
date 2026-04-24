@@ -54,3 +54,7 @@ A real-time network traffic visualization tool written in Kotlin using JavaFX an
     - **Scroll Wheel**: Zoom in and out.
 - **Keyboard**:
     - **Arrow Keys**: Pan the view.
+
+## Releases
+
+Releases will be available on GitHub shortly.
