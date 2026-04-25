@@ -23,6 +23,8 @@ A real-time network traffic visualization tool written in Kotlin using JavaFX an
     - **Toggle Arrows**: Show or hide traffic flow arrows to reduce clutter.
     - **Panning & Zooming**: Navigate the network map using the mouse (drag to pan, scroll to zoom) or arrow keys.
 - **LAN Only**: Intelligently filters out external traffic and virtual interfaces (Docker, VPNs, etc.) to focus on your physical local network.
+- **Ability to see Internet traffic**:
+    - PKN can also see traffic to the internet. 
 
 ## Prerequisites
 
@@ -57,4 +59,4 @@ A real-time network traffic visualization tool written in Kotlin using JavaFX an
 
 ## Releases
 
-Releases will be available on GitHub shortly.
+Releases can be found on the GitHub [Releases](https://github.com/meowcat767/PickleNetworkDebugger/releases) page.

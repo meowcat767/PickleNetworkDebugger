@@ -301,14 +301,19 @@ class NetView : Application() {
         }
 
         val others = localNodes.filter { it != router }
-        var currentRadius = 300.0
-        val ringSpacing = 150.0
+        var currentRadius = 250.0
+        val ringSpacing = 200.0
         val nodesPerRing = 20
 
         if (others.isNotEmpty()) {
             others.chunked(nodesPerRing).forEach { ringNodes ->
+                val nodeCount = ringNodes.size
                 ringNodes.forEachIndexed { index, node ->
-                    val angle = (2 * Math.PI * index) / ringNodes.size
+                    // Spread nodes around the circle. 
+                    // To avoid nodes being too close when there are few of them, 
+                    // we can ensure a minimum angular separation, but usually 2*PI/N is fine 
+                    // if the radius is large enough.
+                    val angle = (2 * Math.PI * index) / nodeCount
                     val x = centerX + cos(angle) * currentRadius
                     val y = centerY + sin(angle) * currentRadius
                     positions[node] = x to y
