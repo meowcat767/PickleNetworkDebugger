@@ -213,26 +213,33 @@ class NetView : Application() {
         }
 
         val others = localNodes.filter { it != router }
-        val radius = 300.0
+        var currentRadius = 300.0
+        val ringSpacing = 150.0
+        val nodesPerRing = 20
 
         if (others.isNotEmpty()) {
-            others.forEachIndexed { index, node ->
-                val angle = (2 * Math.PI * index) / others.size
-
-                val x = centerX + cos(angle) * radius
-                val y = centerY + sin(angle) * radius
-
-                positions[node] = x to y
+            others.chunked(nodesPerRing).forEach { ringNodes ->
+                ringNodes.forEachIndexed { index, node ->
+                    val angle = (2 * Math.PI * index) / ringNodes.size
+                    val x = centerX + cos(angle) * currentRadius
+                    val y = centerY + sin(angle) * currentRadius
+                    positions[node] = x to y
+                }
+                currentRadius += ringSpacing
             }
         }
 
         if (externalNodes.isNotEmpty()) {
-            val externalRadius = 550.0
-            externalNodes.forEachIndexed { index, node ->
-                val angle = (2 * Math.PI * index) / externalNodes.size
-                val x = centerX + cos(angle) * externalRadius
-                val y = centerY + sin(angle) * externalRadius
-                positions[node] = x to y
+            // Start external rings further out
+            currentRadius += ringSpacing 
+            externalNodes.chunked(nodesPerRing).forEach { ringNodes ->
+                ringNodes.forEachIndexed { index, node ->
+                    val angle = (2 * Math.PI * index) / ringNodes.size
+                    val x = centerX + cos(angle) * currentRadius
+                    val y = centerY + sin(angle) * currentRadius
+                    positions[node] = x to y
+                }
+                currentRadius += ringSpacing
             }
         }
 
