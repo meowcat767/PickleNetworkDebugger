@@ -54,4 +54,12 @@ fun startCapture(handle: PcapHandle) {
             NetworkGraph.addFlow(src, dst, requestInfo)
         }
     })
+
+}
+
+fun isPrivateIp(ip: String): Boolean {
+    return ip.startsWith("10.") ||
+            ip.startsWith("192.168.") ||
+            ip.matches(Regex("""172\.(1[6-9]|2\d|3[0-1])\..*""")) ||
+            ip == "127.0.0.1"
 }

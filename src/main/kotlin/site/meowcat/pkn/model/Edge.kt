@@ -3,6 +3,7 @@ package site.meowcat.pkn.model
 data class Edge(val src: String, val dst: String, var weight: Int = 0, var lastRequest: String? = null, var lastPacketTime: Long = 0)
 
 object NetworkGraph {
+    var showExternalNodes = false
     val nodes = mutableSetOf<String>()
     val edges = mutableMapOf<Pair<String, String>, Edge>()
     private val hostNames = mutableMapOf<String, String>()
@@ -100,8 +101,23 @@ object NetworkGraph {
         val router = getGateway()
         
         // Determine the nodes to use for the edge in the graph
-        val effectiveSrc = if (srcLocal) src else (router ?: src)
-        val effectiveDst = if (dstLocal) dst else (router ?: dst)
+        val effectiveSrc = if (srcLocal || (showExternalNodes && dstLocal)) {
+            if (!srcLocal && showExternalNodes && dstLocal) {
+                if (nodes.add(src)) resolveHostName(src)
+            }
+            src
+        } else {
+            router ?: src
+        }
+
+        val effectiveDst = if (dstLocal || (showExternalNodes && srcLocal)) {
+            if (!dstLocal && showExternalNodes && srcLocal) {
+                if (nodes.add(dst)) resolveHostName(dst)
+            }
+            dst
+        } else {
+            router ?: dst
+        }
 
         if (effectiveSrc == effectiveDst) {
             // Self-traffic or traffic to/from router when it's the gateway
@@ -194,6 +210,11 @@ object NetworkGraph {
                 }
             } catch (e: Exception) {}
         }
+    }
+
+    @Synchronized
+    fun isLocalNode(ip: String): Boolean {
+        return isLocal(ip)
     }
 
     @Synchronized

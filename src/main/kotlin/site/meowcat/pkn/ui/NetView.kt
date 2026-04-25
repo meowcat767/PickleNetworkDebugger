@@ -28,6 +28,7 @@ import org.pcap4j.core.PcapNativeException
 import site.meowcat.pkn.capture.startCapture
 import site.meowcat.pkn.capture.NetworkScanner
 import site.meowcat.pkn.capture.getGateway
+import site.meowcat.pkn.capture.isPrivateIp
 import kotlin.concurrent.thread
 
 class NetView : Application() {
@@ -36,6 +37,8 @@ class NetView : Application() {
 
     // generic device names
     private val generic = setOf("android", "Android", "localhost", "none", "device", "\\040none\\041")
+
+
     // Zoom and Pan state
     private var scale = 1.0
     private var offsetX = 0.0
@@ -59,6 +62,12 @@ class NetView : Application() {
                 setOnAction { showEdges = isSelected }
             }
 
+            val externalToggle = CheckBox("Show External").apply {
+                isSelected = false
+                textFill = Color.WHITE
+                setOnAction { NetworkGraph.showExternalNodes = isSelected }
+            }
+
             val searchField = TextField().apply {
                 promptText = "Search devices..."
                 textProperty().addListener { _, _, newValue ->
@@ -76,7 +85,7 @@ class NetView : Application() {
                 }
             }
 
-            children.addAll(edgeToggle, searchLabel, searchField, statsButton)
+            children.addAll(edgeToggle, externalToggle, searchLabel, searchField, statsButton)
         }
 
         val root = VBox(controls, canvas)
@@ -177,6 +186,7 @@ class NetView : Application() {
     }
 
     fun draw(gc: javafx.scene.canvas.GraphicsContext, w: Double, h: Double) {
+
         gc.fill = Color.web("#1e1e1e")
         gc.fillRect(0.0, 0.0, w, h)
 
@@ -195,36 +205,50 @@ class NetView : Application() {
         val centerX = w / 2
         val centerY = h / 2
 
-        if (router != null && router in filteredNodes) {
+        val localNodes = filteredNodes.filter { NetworkGraph.isLocalNode(it) }
+        val externalNodes = filteredNodes.filter { !NetworkGraph.isLocalNode(it) }
+
+        if (router != null && router in localNodes) {
             positions[router] = centerX to centerY
         }
 
-        val nodeCount = filteredNodes.size
-        if (nodeCount == 0) return
+        val others = localNodes.filter { it != router }
+        val radius = 300.0
 
-        val others = filteredNodes.filter { it != router }
-        val radius = 400.0
+        if (others.isNotEmpty()) {
+            others.forEachIndexed { index, node ->
+                val angle = (2 * Math.PI * index) / others.size
 
-        others.forEachIndexed { index, node ->
-            val angle = (2 * Math.PI * index) / others.size
+                val x = centerX + cos(angle) * radius
+                val y = centerY + sin(angle) * radius
 
-            val x = centerX + cos(angle) * radius
-            val y = centerY + sin(angle) * radius
+                positions[node] = x to y
+            }
+        }
 
-            positions[node] = x to y
+        if (externalNodes.isNotEmpty()) {
+            val externalRadius = 550.0
+            externalNodes.forEachIndexed { index, node ->
+                val angle = (2 * Math.PI * index) / externalNodes.size
+                val x = centerX + cos(angle) * externalRadius
+                val y = centerY + sin(angle) * externalRadius
+                positions[node] = x to y
+            }
         }
 
         filteredNodes.forEach { node ->
             val pos = positions[node] ?: return@forEach
             val x = pos.first
             val y = pos.second
+            
+            val isLocal = NetworkGraph.isLocalNode(node)
 
             // Background highlight for the device cell
-            gc.fill = Color.web("#2d2d2d")
+            gc.fill = if (isLocal) Color.web("#2d2d2d") else Color.web("#3d2d2d")
             gc.fillRoundRect(x - 70, y - 40, 140.0, 80.0, 15.0, 15.0)
 
             // Node Circle
-            gc.fill = Color.web("#4a9eff")
+            gc.fill = if (isLocal) Color.web("#4a9eff") else Color.web("#ff4a4a")
             gc.fillOval(x - 15, y - 15, 30.0, 30.0)
 
             // IP/Name Label
