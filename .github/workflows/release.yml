@@ -37,8 +37,11 @@ jobs:
         run: |
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
           else
-            echo "TAG_NAME=pre-release" >> $GITHUB_OUTPUT
+            VERSION="0.0.0.${{ github.run_number }}"
+            echo "TAG_NAME=v$VERSION" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Release
@@ -47,7 +50,7 @@ jobs:
           files: |
             target/*.jar
           tag_name: ${{ steps.vars.outputs.TAG_NAME }}
-          name: ${{ steps.vars.outputs.TAG_NAME == 'pre-release' && 'Automated Pre-release' || format('Release {0}', steps.vars.outputs.TAG_NAME) }}
+          name: ${{ steps.vars.outputs.TAG_NAME }}
           draft: false
-          prerelease: true
+          prerelease: ${{ steps.vars.outputs.IS_PRERELEASE == 'true' }}
           generate_release_notes: true
