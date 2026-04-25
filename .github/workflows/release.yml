@@ -53,4 +53,5 @@ jobs:
           name: ${{ steps.vars.outputs.TAG_NAME }}
           draft: false
           prerelease: ${{ steps.vars.outputs.IS_PRERELEASE == 'true' }}
+          make_latest: ${{ steps.vars.outputs.IS_PRERELEASE == 'false' }}
           generate_release_notes: true
