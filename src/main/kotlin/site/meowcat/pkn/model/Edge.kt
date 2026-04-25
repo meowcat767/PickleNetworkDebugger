@@ -10,6 +10,13 @@ object NetworkGraph {
     private val localSubnets = mutableListOf<java.net.InterfaceAddress>()
     private var cachedGateway: String? = null
 
+    fun isPrivateIp(ip: String): Boolean {
+        return ip.startsWith("10.") ||
+                ip.startsWith("192.168.") ||
+                ip.matches(Regex("""172\.(1[6-9]|2\d|3[0-1])\..*""")) ||
+                ip == "127.0.0.1"
+    }
+
     init {
         cachedGateway = site.meowcat.pkn.capture.getGateway()
         try {
@@ -37,6 +44,7 @@ object NetworkGraph {
 
     private fun isLocal(ipStr: String): Boolean {
         if (ipStr == "127.0.0.1") return true
+        if (isPrivateIp(ipStr)) return true
         val target = try {
             java.net.InetAddress.getByName(ipStr).address
         } catch (e: Exception) {
@@ -107,7 +115,11 @@ object NetworkGraph {
             }
             src
         } else {
-            router ?: src
+            if (dstLocal) "Internet" else (router ?: src)
+        }
+
+        if (!srcLocal && effectiveSrc == "Internet") {
+            nodes.add("Internet")
         }
 
         val effectiveDst = if (dstLocal || (showExternalNodes && srcLocal)) {
@@ -116,7 +128,11 @@ object NetworkGraph {
             }
             dst
         } else {
-            router ?: dst
+            if (srcLocal) "Internet" else (router ?: dst)
+        }
+
+        if (!dstLocal && effectiveDst == "Internet") {
+            nodes.add("Internet")
         }
 
         if (effectiveSrc == effectiveDst) {
@@ -219,12 +235,14 @@ object NetworkGraph {
 
     @Synchronized
     fun getDisplayName(ip: String): String {
+        if (ip == "Internet") return "Internet"
         val hostName = hostNames[ip] ?: ip
         return if (hostName == ip) ip else "$hostName ($ip)"
     }
 
     @Synchronized
     fun getDetectedName(ip: String): String {
+        if (ip == "Internet") return "Internet"
         return hostNames[ip] ?: ip
     }
 }

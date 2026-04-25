@@ -28,7 +28,6 @@ import org.pcap4j.core.PcapNativeException
 import site.meowcat.pkn.capture.startCapture
 import site.meowcat.pkn.capture.NetworkScanner
 import site.meowcat.pkn.capture.getGateway
-import site.meowcat.pkn.capture.isPrivateIp
 import kotlin.concurrent.thread
 
 class NetView : Application() {
