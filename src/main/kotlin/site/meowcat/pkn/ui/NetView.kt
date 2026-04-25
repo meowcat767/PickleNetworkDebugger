@@ -184,6 +184,12 @@ class NetView : Application() {
         }.apply { isDaemon = true }.start()
     }
 
+    private var lastNodesHash = 0
+    private var cachedPositions = emptyMap<String, Pair<Double, Double>>()
+    private var lastW = 0.0
+    private var lastH = 0.0
+    private var lastShowExternal = false
+
     fun draw(gc: javafx.scene.canvas.GraphicsContext, w: Double, h: Double) {
 
         gc.fill = Color.web("#1e1e1e")
@@ -193,54 +199,23 @@ class NetView : Application() {
         gc.translate(offsetX, offsetY)
         gc.scale(scale, scale)
 
-        val filteredNodes = NetworkGraph.nodes.filter { ip ->
+        val currentNodes = NetworkGraph.nodes.toSet()
+        val currentNodesHash = currentNodes.hashCode()
+        val showExternal = NetworkGraph.showExternalNodes
+
+        if (currentNodesHash != lastNodesHash || w != lastW || h != lastH || showExternal != lastShowExternal) {
+            lastNodesHash = currentNodesHash
+            lastW = w
+            lastH = h
+            lastShowExternal = showExternal
+            cachedPositions = calculatePositions(currentNodes, w, h, showExternal)
+        }
+
+        val positions = cachedPositions
+        val filteredNodes = currentNodes.filter { ip ->
             val displayName = prettyName(ip).lowercase()
             filterText.isEmpty() || displayName.contains(filterText) || ip.contains(filterText)
         }.sorted()
-
-        val router = NetworkGraph.getGateway()
-
-        val positions = mutableMapOf<String, Pair<Double, Double>>()
-        val centerX = w / 2
-        val centerY = h / 2
-
-        val localNodes = filteredNodes.filter { NetworkGraph.isLocalNode(it) }
-        val externalNodes = filteredNodes.filter { !NetworkGraph.isLocalNode(it) }
-
-        if (router != null && router in localNodes) {
-            positions[router] = centerX to centerY
-        }
-
-        val others = localNodes.filter { it != router }
-        var currentRadius = 300.0
-        val ringSpacing = 150.0
-        val nodesPerRing = 20
-
-        if (others.isNotEmpty()) {
-            others.chunked(nodesPerRing).forEach { ringNodes ->
-                ringNodes.forEachIndexed { index, node ->
-                    val angle = (2 * Math.PI * index) / ringNodes.size
-                    val x = centerX + cos(angle) * currentRadius
-                    val y = centerY + sin(angle) * currentRadius
-                    positions[node] = x to y
-                }
-                currentRadius += ringSpacing
-            }
-        }
-
-        if (externalNodes.isNotEmpty()) {
-            // Start external rings further out
-            currentRadius += ringSpacing 
-            externalNodes.chunked(nodesPerRing).forEach { ringNodes ->
-                ringNodes.forEachIndexed { index, node ->
-                    val angle = (2 * Math.PI * index) / ringNodes.size
-                    val x = centerX + cos(angle) * currentRadius
-                    val y = centerY + sin(angle) * currentRadius
-                    positions[node] = x to y
-                }
-                currentRadius += ringSpacing
-            }
-        }
 
         filteredNodes.forEach { node ->
             val pos = positions[node] ?: return@forEach
@@ -276,10 +251,10 @@ class NetView : Application() {
         // Draw edges as arrows (flashing for recent activity)
         if (showEdges) {
             val now = System.currentTimeMillis()
-            NetworkGraph.edges.values.forEach { edge ->
+            // Iterate only over active edges in the last second to improve performance
+            NetworkGraph.edges.values.filter { now - it.lastPacketTime <= 1000 }.forEach { edge ->
                 val timeSinceLastPacket = now - edge.lastPacketTime
-                if (timeSinceLastPacket > 1000) return@forEach // Only flash for 1 second
-
+                
                 val start = positions[edge.src] ?: return@forEach
                 val end = positions[edge.dst] ?: return@forEach
 
@@ -308,6 +283,64 @@ class NetView : Application() {
             gc.font = Font.font("Monospaced", 14.0)
             gc.fillText("Please wait for the initial discovery to complete", w / 2, h / 2 + 40)
         }
+    }
+
+    private fun calculatePositions(nodes: Set<String>, w: Double, h: Double, showExternal: Boolean): Map<String, Pair<Double, Double>> {
+        val positions = mutableMapOf<String, Pair<Double, Double>>()
+        val centerX = w / 2
+        val centerY = h / 2
+        val router = NetworkGraph.getGateway()
+
+        val allNodes = nodes.toList().sorted()
+        val localNodes = allNodes.filter { NetworkGraph.isLocalNode(it) }
+        val externalNodes = allNodes.filter { !NetworkGraph.isLocalNode(it) && it != "Internet" }
+        val internetNode = allNodes.find { it == "Internet" }
+
+        if (router != null && router in localNodes) {
+            positions[router] = centerX to centerY
+        }
+
+        val others = localNodes.filter { it != router }
+        var currentRadius = 300.0
+        val ringSpacing = 150.0
+        val nodesPerRing = 20
+
+        if (others.isNotEmpty()) {
+            others.chunked(nodesPerRing).forEach { ringNodes ->
+                ringNodes.forEachIndexed { index, node ->
+                    val angle = (2 * Math.PI * index) / ringNodes.size
+                    val x = centerX + cos(angle) * currentRadius
+                    val y = centerY + sin(angle) * currentRadius
+                    positions[node] = x to y
+                }
+                currentRadius += ringSpacing
+            }
+        }
+
+        val visibleExternalNodes = if (showExternal) externalNodes else emptyList()
+
+        if (internetNode != null) {
+            val x = centerX + cos(0.0) * currentRadius
+            val y = centerY + sin(0.0) * currentRadius
+            positions[internetNode] = x to y
+            if (visibleExternalNodes.isEmpty()) {
+                currentRadius += ringSpacing
+            }
+        }
+
+        if (visibleExternalNodes.isNotEmpty()) {
+            if (internetNode == null) currentRadius += ringSpacing
+            visibleExternalNodes.chunked(nodesPerRing).forEach { ringNodes ->
+                ringNodes.forEachIndexed { index, node ->
+                    val angle = (2 * Math.PI * index) / ringNodes.size
+                    val x = centerX + cos(angle) * currentRadius
+                    val y = centerY + sin(angle) * currentRadius
+                    positions[node] = x to y
+                }
+                currentRadius += ringSpacing
+            }
+        }
+        return positions
     }
 
     private fun drawArrow(gc: javafx.scene.canvas.GraphicsContext, x1: Double, y1: Double, x2: Double, y2: Double, label: String? = null, opacity: Double = 1.0) {

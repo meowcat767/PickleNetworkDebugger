@@ -8,6 +8,7 @@ object NetworkGraph {
     val edges = mutableMapOf<Pair<String, String>, Edge>()
     private val hostNames = mutableMapOf<String, String>()
     private val localSubnets = mutableListOf<java.net.InterfaceAddress>()
+    private val localCache = mutableMapOf<String, Boolean>()
     private var cachedGateway: String? = null
 
     fun isPrivateIp(ip: String): Boolean {
@@ -230,7 +231,7 @@ object NetworkGraph {
 
     @Synchronized
     fun isLocalNode(ip: String): Boolean {
-        return isLocal(ip)
+        return localCache.getOrPut(ip) { isLocal(ip) }
     }
 
     @Synchronized
