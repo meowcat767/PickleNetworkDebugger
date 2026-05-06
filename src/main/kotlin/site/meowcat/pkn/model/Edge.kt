@@ -1,6 +1,6 @@
 package site.meowcat.pkn.model
 
-data class Edge(val src: String, val dst: String, var weight: Int = 0, var lastRequest: String? = null, var lastPacketTime: Long = 0)
+data class Edge(var protocol: String = "UNKNOWN", val src: String, val dst: String, var weight: Int = 0, var lastRequest: String? = null, var lastPacketTime: Long = 0)
 
 object NetworkGraph {
     var showExternalNodes = false
