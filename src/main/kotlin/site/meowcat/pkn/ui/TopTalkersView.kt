@@ -20,7 +20,7 @@ class TopTalkersView : Stage() {
     private val table = TableView<DeviceStats>()
 
     init {
-        title = "Top Traffic Devices"
+        title = "Top Traffic Addresses"
 
         val ipCol = TableColumn<DeviceStats, String>("IP")
         ipCol.setCellValueFactory { cellData ->
