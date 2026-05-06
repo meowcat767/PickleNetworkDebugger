@@ -21,19 +21,26 @@ fun startCapture(handle: PcapHandle) {
 
         if (src != null && dst != null) {
             var requestInfo: String? = null
+            var protocol = "OTHER"
 
             // Try to extract some useful "request" info
             val tcp = ip.payload as? TcpPacket
             val udp = ip.payload as? UdpPacket
+
+            if (tcp != null) {
+                protocol = "TCP"
+
 
             if (tcp != null && tcp.payload != null) {
                 val data = String(tcp.payload.rawData)
                 if (data.startsWith("GET ") || data.startsWith("POST ") || data.startsWith("HTTP/")) {
                     val hostLine = data.lines().find { it.startsWith("Host: ") }
                     requestInfo = hostLine?.substringAfter("Host: ")?.trim() ?: "HTTP Request"
+                    protocol = "HTTP" // override TCP with something more specific
                 }
             } else if (udp != null && (udp.header.dstPort.valueAsInt() == 53 || udp.header.srcPort.valueAsInt() == 53)) {
                 requestInfo = "DNS Query"
+                protocol = "DNS"
             }
 
             // Fallback to destination name/IP if no protocol-specific info found
@@ -51,8 +58,8 @@ fun startCapture(handle: PcapHandle) {
             }
 
             TrafficStats.record(src, dst, packet.length())
-            NetworkGraph.addFlow(src, dst, requestInfo)
-        }
+            NetworkGraph.addFlow(src, dst, requestInfo, protocol)
+        }}
     })
 
 }

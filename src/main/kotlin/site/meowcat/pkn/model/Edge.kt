@@ -94,7 +94,7 @@ object NetworkGraph {
     }
 
     @Synchronized
-    fun addFlow(src: String, dst: String, requestInfo: String? = null) {
+    fun addFlow(src: String, dst: String, requestInfo: String? = null, protocol: String) {
         val srcLocal = isLocal(src)
         val dstLocal = isLocal(dst)
 
@@ -146,12 +146,13 @@ object NetworkGraph {
         }
 
         val key = effectiveSrc to effectiveDst
-        val edge = edges.getOrPut(key) { Edge(effectiveSrc, effectiveDst, 0) }
+        val edge = edges.getOrPut(key) { Edge(src = effectiveSrc, dst = effectiveDst) }
         edge.weight++
         edge.lastPacketTime = System.currentTimeMillis()
         if (requestInfo != null) {
             edge.lastRequest = requestInfo
         }
+        edge.protocol = protocol
     }
 
     fun getLocalSubnets(): List<String> {

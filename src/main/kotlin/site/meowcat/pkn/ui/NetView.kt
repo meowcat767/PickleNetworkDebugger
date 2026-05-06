@@ -262,7 +262,14 @@ class NetView : Application() {
 
                 // Fade out based on time
                 val opacity = (1.0 - (timeSinceLastPacket / 1000.0)).coerceIn(0.0, 1.0)
-                gc.stroke = Color.web("#00ff00", opacity * 0.8)
+                val color = when (edge.protocol) {
+                    "HTTP" -> Color.web("#00ffff", opacity)
+                    "DNS" -> Color.web("#fff0ff", opacity)
+                    "TCP" -> Color.web("#00ff00", opacity)
+                    "UDP" -> Color.web("#ffaa00",opacity)
+                    else -> Color.web("#888888", opacity)
+                }
+                gc.stroke = color
                 gc.lineWidth = 2.0
 
                 drawArrow(gc, start.first, start.second, end.first, end.second, edge.lastRequest, opacity)
